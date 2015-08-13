@@ -2409,7 +2409,8 @@ static void __init fixup_android_board(struct machine_desc *desc, struct tag *ta
  * The following uses standard kernel macros define in arch.h in order to
  * initialize __mach_desc_MX53_BEJ data structure.
  */
-MACHINE_START(MX53_BEJ2, "Freescale MX53 BEJ2 Board")
+//MACHINE_START(MX53_BEJ2, "Freescale MX53 BEJ2 Board")
+MACHINE_START(MX53_BEJ2, "Freescale")
 	/* Maintainer: Freescale Semiconductor, Inc. */
 #ifdef CONFIG_ANDROID_PMEM
 	.fixup = fixup_android_board,
