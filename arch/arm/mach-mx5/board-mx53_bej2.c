@@ -98,9 +98,9 @@
 #define MX53_BEJ_OPEN12	IMX_GPIO_NR(2, 7)
 #define MX53_BEJ_KEY_HOME	IMX_GPIO_NR(2, 12)
 #define MX53_BEJ_KEY_RETAN	IMX_GPIO_NR(2, 13)
-#define MX53_BEJ_VOL_DOWN		IMX_GPIO_NR(2, 14)
-#define MX53_BEJ_VOL_UP		IMX_GPIO_NR(2, 15)
-#define MX53_BEJ_NAND_BOOT	IMX_GPIO_NR(2, 16)
+#define MX53_BEJ_KEY_VOL_DOWN		IMX_GPIO_NR(2, 14)
+#define MX53_BEJ_KEY_VOL_UP		IMX_GPIO_NR(2, 15)
+#define MX53_BEJ_NANDBOOT	IMX_GPIO_NR(2, 16)
 #define MX53_BEJ_OPEN13	IMX_GPIO_NR(2, 17)
 #define MX53_BEJ_OPEN14	IMX_GPIO_NR(2, 18)
 #define MX53_BEJ_OPEN15	IMX_GPIO_NR(2, 19)
@@ -214,7 +214,7 @@
 #define MX53_BEJ_LED1	IMX_GPIO_NR(6, 14)
 #define MX53_BEJ_LED2	IMX_GPIO_NR(6, 15)
 #define MX53_BEJ_LED3	IMX_GPIO_NR(6, 16)
-#define MX53_BEJ_KEY_SERCH		IMX_GPIO_NR(6, 17)
+#define MX53_BEJ_KEY_SEARCH		IMX_GPIO_NR(6, 17)
 #define MX53_BEJ_TP39	IMX_GPIO_NR(6, 18)
 
 //--- GPIO7 ---//
@@ -231,6 +231,7 @@
 #define MX53_BEJ_BAT_ALART	IMX_GPIO_NR(7, 12)
 #define MX53_BEJ_OPEN88	IMX_GPIO_NR(7, 13)
 
+#define MX53_OFFSET	(0x20000000)
 #define TZIC_WAKEUP0_OFFSET	0x0E00
 #define TZIC_WAKEUP1_OFFSET	0x0E04
 #define TZIC_WAKEUP2_OFFSET	0x0E08
@@ -688,8 +689,8 @@ static iomux_v3_cfg_t mx53_bej_pads[] = {
 }
 
 static struct gpio_keys_button bej_buttons[] = {
-	GPIO_BUTTON(MX53_BEJ_DEVELOP_MODE_SW, KEY_BACK, 0, "back", 0),
-	GPIO_BUTTON(MX53_BEJ_RECOVERY_MODE_SW, KEY_MENU, 0, "menu", 0),
+	GPIO_BUTTON(MX53_BEJ_DEVELOP_MODE_SW, KEY_BACK, 0, "back", 0, 0),
+	GPIO_BUTTON(MX53_BEJ_RECOVERY_MODE_SW, KEY_MENU, 0, "menu", 0, 0),
 };
 
 static struct gpio_keys_platform_data bej_button_data = {
@@ -732,6 +733,9 @@ static const struct imxi2c_platform_data mx53_bej_i2c_data __initconst = {
 };
 
 extern void __iomem *tzic_base;
+void __iomem *srtc_base;
+unsigned long lp_cr;
+
 static void smd_da9053_irq_wakeup_only_fixup(void)
 {
 	if (NULL == tzic_base) {
@@ -739,7 +743,7 @@ static void smd_da9053_irq_wakeup_only_fixup(void)
 		return;
 	}
 
-	srtc_base = ioremap(SRTC_BASE_ADDR - MX53_OFFSET, 0x40);
+	srtc_base = ioremap(MX53_SRTC_BASE_ADDR - MX53_OFFSET, 0x40);
 	if (NULL == srtc_base) {
 		pr_err("fail to map MX53_SRTC_BASE_ADDR\n");
 		iounmap(tzic_base);
@@ -749,7 +753,7 @@ static void smd_da9053_irq_wakeup_only_fixup(void)
 	lp_cr = __raw_readl(srtc_base + SRTC_LPCR);
 	if(lp_cr & (SRTC_LPCR_ALP | SRTC_LPCR_WAE))
 	{
-		__raw_writel(1 << MXC_INT_SRTC_NTZ, tzic_base + TZIC_WAKEUP0_OFFSET);
+		__raw_writel(1 << MX53_INT_SRTC_NTZ, tzic_base + TZIC_WAKEUP0_OFFSET);
 	}
 	else
 	{
@@ -854,8 +858,8 @@ static struct fsl_mxc_camera_platform_data camera_data = {
 	.mclk = 24000000,
 //	.mclk_source = 0,
 	.csi = 0,
-	.io_init = mx53_smd_csi0_io_init,
-//	.pwdn = mx53_smd_csi0_cam_powerdown,
+//	.io_init = mx53_bej_csi0_io_init,
+//	.pwdn = mx53_bej_csi0_cam_powerdown,
 	.pwdn = bej2_pwdn_enable,
 };
 /*
@@ -897,14 +901,16 @@ static struct i2c_board_info mxc_i2c1_board_info[] __initdata = {
 	},
 };
 
+/*
 static int mx53_bej_spi_cs[] = {
 	MX53_BEJ_ECSPI1_CS0,
 	MX53_BEJ_ECSPI1_CS1,
 };
+*/
 
 static struct spi_imx_master mx53_bej_spi_data = {
-	.chipselect = mx53_bej_spi_cs,
-	.num_chipselect = ARRAY_SIZE(mx53_bej_spi_cs),
+	.chipselect = NULL,
+	.num_chipselect = NULL,
 };
 
 static void mxc_iim_enable_fuse(void)
@@ -1006,19 +1012,19 @@ static void mx53_bej_usbotg_vbus(bool on)
 
 static void __init mx53_bej_init_usb(void)
 {
-	int ret = 0;
-
+//	int ret = 0;
+/*
 	imx_otg_base = MX53_IO_ADDRESS(MX53_OTG_BASE_ADDR);
 	ret = gpio_request(MX53_BEJ_OTG_VBUS, "usb-pwr");
 	if (ret) {
 		printk(KERN_ERR"failed to get GPIO SMD_OTG_VBUS: %d\n", ret);
 		return;
-	}
-	gpio_direction_output(MX53_BEJ_OTG_VBUS, 0);
+	}*/
+//	gpio_direction_output(MX53_BEJ_OTG_VBUS, 0);
 
-	mx5_set_otghost_vbus_func(mx53_bej_usbotg_vbus);
+//	mx5_set_otghost_vbus_func(mx53_bej_usbotg_vbus);
 	mx5_usb_dr_init();
-	mx5_usbh1_init();
+//	mx5_usbh1_init();
 }
 
 static struct mxc_audio_platform_data smd_audio_data;
@@ -1050,7 +1056,7 @@ static struct mxc_audio_platform_data smd_audio_data = {
 	.ext_port = 5,
 	.init = smd_sgtl5000_init,
 	.amp_enable = smd_sgtl5000_amp_enable,
-	.hp_gpio = MX53_BEJ_HEADPHONE_DEC,
+	.hp_gpio = MX53_BEJ_HEADPHONE_DET,
 	.hp_active_low = 1,
 };
 
@@ -1235,29 +1241,13 @@ static void __init fixup_mxc_board(struct machine_desc *desc, struct tag *tags,
 	}
 }
 
-static void mx53_bej_power_off(void)
-{
-	/* Drive DCDC5V_BB_EN low to disable LVDS0/1 power */
-	gpio_direction_output(MX53_BEJ_DCDC5V_BB_EN, 0);
-	/* Drive DCDC1V8_BB_EN low to disable 1V8 voltage */
-	gpio_direction_output(MX53_BEJ_DCDC1V8_EN, 0);
-
-	/* Disable the Audio AMP to avoid noise after shutdown */
-	gpio_request(MX53_BEJ_AUD_AMP_STBY_B, "amp-standby");
-	gpio_direction_output(MX53_BEJ_AUD_AMP_STBY_B, 0);
-
-	/* power off by sending shutdown command to da9053*/
-	da9053_power_off();
-}
-
 static int __init mx53_bej_power_init(void)
 {
 	/* cpu get regulator needs to be in lateinit so that
 	   regulator list gets updated for i2c da9052 regulators */
 	mx5_cpu_regulator_init();
 
-	if (machine_is_mx53_smd())
-		pm_power_off = mx53_bej_power_off;
+	pm_power_off = da9053_power_off;
 
 	return 0;
 }
@@ -1283,13 +1273,11 @@ static int __init imx5x_add_ram_console(void)
 #define imx5x_add_ram_console() do {} while (0)
 #endif
 
-static void __init mx53_bej_board_init(void)
+static void __init mx53_bej_io_init(void)
 {
-	int i;
-
 	mxc_iomux_v3_setup_multiple_pads(mx53_bej_pads,
 					ARRAY_SIZE(mx53_bej_pads));
-/* bej start */
+
 //--- GPIO1 ----//
 /* MX53_BEJ_JTAG_DE_B		 GPIO1_2 */
 	gpio_request(MX53_BEJ_JTAG_DE_B, "jtag_de");
@@ -1472,6 +1460,12 @@ static void __init mx53_bej_board_init(void)
 /* MX53_BEJ_OPEN32				GPIO_3_9 */
 	gpio_request(MX53_BEJ_OPEN32, "open32");
 	gpio_direction_output(MX53_BEJ_OPEN32, 0);
+
+#ifdef EVABOARD
+/* MX53_BEJ_RECOVERY_MODE_SW	GPIO_3_11 */
+	gpio_request(MX53_BEJ_RECOVERY_MODE_SW, "recover_sw");
+	gpio_direction_output(MX53_BEJ_RECOVERY_MODE_SW, 0);
+#endif
 
 /* MX53_BEJ_TP24				GPIO_3_12 */
 	gpio_request(MX53_BEJ_TP24, "tp24");
@@ -1799,6 +1793,12 @@ static void __init mx53_bej_board_init(void)
 	gpio_request(MX53_BEJ_CAME_EN, "came_en");
 	gpio_direction_output(MX53_BEJ_CAME_EN, 0);
 
+#ifdef EVABOARD
+/* MX53_BEJ_DEVELOP_MODE_SW		GPIO_7_9 */
+	gpio_request(MX53_BEJ_DEVELOP_MODE_SW, "dev_sw");
+	gpio_direction_output(MX53_BEJ_DEVELOP_MODE_SW, 0);
+#endif
+
 /* MX53_BEJ_OPEN86				GPIO_7_10 */
 	gpio_request(MX53_BEJ_OPEN86, "open86");
 	gpio_direction_output(MX53_BEJ_OPEN86, 0);
@@ -1809,6 +1809,7 @@ static void __init mx53_bej_board_init(void)
 
 	gpio_request(MX53_BEJ_BAT_ALART, "bat_alart");
 	gpio_direction_input(MX53_BEJ_BAT_ALART);
+
 /* MX53_BEJ_OPEN88				GPIO_7_13 */
 	gpio_request(MX53_BEJ_OPEN88, "open88");
 	gpio_direction_output(MX53_BEJ_OPEN88, 0);
@@ -1822,7 +1823,11 @@ static void __init mx53_bej_board_init(void)
 /* MX53_BEJ_LCD_PWR_EN */
 	/*LCD起動シーケンス*/
 	gpio_request(MX53_BEJ_LCD_PWR_EN, "lcd-pwr-en");
+#ifdef MFG
+	gpio_direction_output(MX53_BEJ_LCD_PWR_EN, 0);
+#else
 	gpio_direction_output(MX53_BEJ_LCD_PWR_EN, 1);
+#endif
 
 //	gpio_request(MX53_BEJ_LCD_RESET, "lcd_reset");
 //	gpio_direction_output(MX53_BEJ_LCD_RESET, 1);
@@ -1858,7 +1863,9 @@ static void __init mx53_bej_board_init(void)
 	gpio_request(MX53_BEJ_WLAN_RST, "wlan_rst");
 	gpio_direction_output(MX53_BEJ_WLAN_RST, 1);
 
+#ifdef EVABOARD
 	/*HOME,BACK,MENU,VOL+-,SEARCH各キーは、キードライバで初期化される*/
+#else
 	gpio_request(MX53_BEJ_KEY_VOL_UP, "volume-up");
 	gpio_direction_output(MX53_BEJ_KEY_VOL_UP, 0);
 	gpio_request(MX53_BEJ_KEY_VOL_DOWN, "volume-down");
@@ -1871,6 +1878,125 @@ static void __init mx53_bej_board_init(void)
 	gpio_direction_output(MX53_BEJ_KEY_MENU, 0);
 	gpio_request(MX53_BEJ_KEY_SEARCH, "search");
 	gpio_direction_output(MX53_BEJ_KEY_SEARCH, 0);
+#endif
+}
+
+static void __init mx53_bej_board_init(void)
+{
+	int i;
+
+	mx53_bej_io_init();
+
+	gp_reg_id = smd_regulator_data.cpu_reg_id;
+	lp_reg_id = smd_regulator_data.vcc_reg_id;
+
+	mx53_bej_init_uart();
+	imx5x_add_ram_console();
+	mxc_register_device(&mxc_pm_device, &smd_pm_data);
+//	imx53_add_fec(&mx53_bej_fec_data);
+	imx53_add_imx2_wdt(0, NULL);
+	imx53_add_srtc();
+	imx53_add_imx_i2c(0, &mx53_bej_i2c_data);
+	imx53_add_imx_i2c(1, &mx53_bej_i2c_data);
+	imx53_add_imx_i2c(2, &mx53_bej_i2c_data);
+	imx53_add_ecspi(0, &mx53_bej_spi_data);
+
+	imx53_add_ipuv3(0, &ipu_data);
+	for (i = 0; i < ARRAY_SIZE(smd_fb_data); i++)
+		imx53_add_ipuv3fb(i, &smd_fb_data[i]);
+	imx53_add_lcdif(&lcdif_data);
+	if (!mxc_fuse_get_vpu_status())
+		imx53_add_vpu();
+	imx53_add_ldb(&ldb_data);
+	imx53_add_v4l2_output(0);
+//	imx53_add_v4l2_capture(0, &capture_data);
+
+
+	/*
+	 * Disable HannStar touch panel CABC function,
+	 * this function turns the panel's backlight automatically
+	 * according to the content shown on the panel which
+	 * may cause annoying unstable backlight issue.
+	 */
+//	gpio_request(MX53_BEJ_CABC_EN0, "cabc-en0");
+//	gpio_direction_output(MX53_BEJ_CABC_EN0, 0);
+//	gpio_request(MX53_BEJ_CABC_EN1, "cabc-en1");
+//	gpio_direction_output(MX53_SMD_CABC_EN1, 0);
+
+	imx53_add_mxc_pwm(1);
+	imx53_add_mxc_pwm_backlight(0, &mxc_pwm_backlight_data);
+
+	if (fs_in_sdcard == 1) {
+		imx53_add_sdhci_esdhc_imx(0, &mx53_bej_sd1_data);
+		imx53_add_sdhci_esdhc_imx(1, &mx53_bej_sd2_data);
+		imx53_add_sdhci_esdhc_imx(2, &mx53_bej_sd3_data);
+	} else {
+		imx53_add_sdhci_esdhc_imx(2, &mx53_bej_sd3_data);
+		imx53_add_sdhci_esdhc_imx(1, &mx53_bej_sd2_data);
+		imx53_add_sdhci_esdhc_imx(0, &mx53_bej_sd1_data);
+	}
+
+//	imx53_add_ahci(0, &mx53_bej_sata_data);
+	mxc_register_device(&imx_ahci_device_hwmon, NULL);
+	mx53_bej_init_usb();
+	imx_asrc_data.asrc_core_clk = clk_get(NULL, "asrc_clk");
+	imx_asrc_data.asrc_audio_clk = clk_get(NULL, "asrc_serial_clk");
+	imx53_add_asrc(&imx_asrc_data);
+
+	imx53_add_iim(&iim_data);
+	smd_add_device_buttons();
+
+	mx53_bej_init_da9052();
+
+//	spi_device_init();
+
+	i2c_register_board_info(0, mxc_i2c0_board_info,
+				ARRAY_SIZE(mxc_i2c0_board_info));
+	i2c_register_board_info(1, mxc_i2c1_board_info,
+				ARRAY_SIZE(mxc_i2c1_board_info));
+	i2c_register_board_info(2, mxc_i2c2_board_info,
+				ARRAY_SIZE(mxc_i2c2_board_info));
+
+//	mxc_register_device(&imx_bt_rfkill, &imx_bt_rfkill_data);
+
+	imx53_add_imx_ssi(1, &smd_ssi_pdata);
+
+	mxc_register_device(&smd_audio_device, &smd_audio_data);
+
+//	mxc_spdif_data.spdif_core_clk = clk_get(NULL, "spdif_xtal_clk");
+//	clk_put(mxc_spdif_data.spdif_core_clk);
+//	imx53_add_spdif(&mxc_spdif_data);
+	imx53_add_spdif_dai();
+	imx53_add_spdif_audio_device();
+
+#ifdef CONFIG_ANDROID_PMEM
+	mxc_register_device(&mxc_android_pmem_device, &android_pmem_data);
+	mxc_register_device(&mxc_android_pmem_gpu_device,
+				&android_pmem_gpu_data);
+#endif
+#ifdef CONFIG_ION
+	imx53_add_ion(0, &imx_ion_data,
+		sizeof(imx_ion_data) + (imx_ion_data.nr * sizeof(struct ion_platform_heap)));
+#endif
+
+	/*GPU*/
+	if (mx53_revision() >= IMX_CHIP_REVISION_2_0)
+		mx53_bej_gpu_pdata.z160_revision = 1;
+	else
+		mx53_bej_gpu_pdata.z160_revision = 0;
+
+	if (!mxc_fuse_get_gpu_status())
+		imx53_add_mxc_gpu(&mx53_bej_gpu_pdata);
+
+	/* this call required to release SCC RAM partition held by ROM
+	  * during boot, even if SCC2 driver is not part of the image
+	  */
+	imx53_add_mxc_scc2();
+//	smd_add_device_battery();
+	pm_i2c_init(MX53_I2C1_BASE_ADDR);
+
+	imx53_add_dvfs_core(&smd_dvfs_core_data);
+	imx53_add_busfreq();
 }
 
 unsigned get_lcd_power_port_bej2(void)
@@ -1928,118 +2054,6 @@ int get_board_rev_bej2(void)
 		printk("board rev 1\n");
 		return 1;
 	}
-/* bej end */
-	gp_reg_id = smd_regulator_data.cpu_reg_id;
-	lp_reg_id = smd_regulator_data.vcc_reg_id;
-
-	mx53_bej_init_uart();
-	imx5x_add_ram_console();
-	mx53_bej_fec_reset();
-	mxc_register_device(&mxc_pm_device, &smd_pm_data);
-	imx53_add_fec(&mx53_bej_fec_data);
-	imx53_add_imx2_wdt(0, NULL);
-	imx53_add_srtc();
-	imx53_add_imx_i2c(0, &mx53_bej_i2c_data);
-	imx53_add_imx_i2c(1, &mx53_bej_i2c_data);
-	imx53_add_imx_i2c(2, &mx53_bej_i2c_data);
-	imx53_add_ecspi(0, &mx53_bej_spi_data);
-
-	imx53_add_ipuv3(0, &ipu_data);
-	for (i = 0; i < ARRAY_SIZE(smd_fb_data); i++)
-		imx53_add_ipuv3fb(i, &smd_fb_data[i]);
-	imx53_add_lcdif(&lcdif_data);
-	if (!mxc_fuse_get_vpu_status())
-		imx53_add_vpu();
-	imx53_add_ldb(&ldb_data);
-	imx53_add_v4l2_output(0);
-	imx53_add_v4l2_capture(0, &capture_data);
-
-
-	/*
-	 * Disable HannStar touch panel CABC function,
-	 * this function turns the panel's backlight automatically
-	 * according to the content shown on the panel which
-	 * may cause annoying unstable backlight issue.
-	 */
-	gpio_request(MX53_BEJ_CABC_EN0, "cabc-en0");
-	gpio_direction_output(MX53_BEJ_CABC_EN0, 0);
-	gpio_request(MX53_BEJ_CABC_EN1, "cabc-en1");
-	gpio_direction_output(MX53_BEJ_CABC_EN1, 0);
-
-	imx53_add_mxc_pwm(1);
-	imx53_add_mxc_pwm_backlight(0, &mxc_pwm_backlight_data);
-
-	if (fs_in_sdcard == 1) {
-		imx53_add_sdhci_esdhc_imx(0, &mx53_bej_sd1_data);
-		imx53_add_sdhci_esdhc_imx(1, &mx53_bej_sd2_data);
-		imx53_add_sdhci_esdhc_imx(2, &mx53_bej_sd3_data);
-	} else {
-		imx53_add_sdhci_esdhc_imx(2, &mx53_bej_sd3_data);
-		imx53_add_sdhci_esdhc_imx(1, &mx53_bej_sd2_data);
-		imx53_add_sdhci_esdhc_imx(0, &mx53_bej_sd1_data);
-	}
-
-	imx53_add_ahci(0, &mx53_bej_sata_data);
-	mxc_register_device(&imx_ahci_device_hwmon, NULL);
-	mx53_bej_init_usb();
-	imx_asrc_data.asrc_core_clk = clk_get(NULL, "asrc_clk");
-	imx_asrc_data.asrc_audio_clk = clk_get(NULL, "asrc_serial_clk");
-	imx53_add_asrc(&imx_asrc_data);
-
-	imx53_add_iim(&iim_data);
-	smd_add_device_buttons();
-
-	mx53_bej_init_da9052();
-
-	spi_device_init();
-
-	i2c_register_board_info(0, mxc_i2c0_board_info,
-				ARRAY_SIZE(mxc_i2c0_board_info));
-	i2c_register_board_info(1, mxc_i2c1_board_info,
-				ARRAY_SIZE(mxc_i2c1_board_info));
-	i2c_register_board_info(2, mxc_i2c2_board_info,
-				ARRAY_SIZE(mxc_i2c2_board_info));
-
-	mxc_register_device(&imx_bt_rfkill, &imx_bt_rfkill_data);
-
-	imx53_add_imx_ssi(1, &smd_ssi_pdata);
-
-	mxc_register_device(&smd_audio_device, &smd_audio_data);
-
-	mxc_spdif_data.spdif_core_clk = clk_get(NULL, "spdif_xtal_clk");
-	clk_put(mxc_spdif_data.spdif_core_clk);
-	imx53_add_spdif(&mxc_spdif_data);
-	imx53_add_spdif_dai();
-	imx53_add_spdif_audio_device();
-
-#ifdef CONFIG_ANDROID_PMEM
-	mxc_register_device(&mxc_android_pmem_device, &android_pmem_data);
-	mxc_register_device(&mxc_android_pmem_gpu_device,
-				&android_pmem_gpu_data);
-#endif
-#ifdef CONFIG_ION
-	imx53_add_ion(0, &imx_ion_data,
-		sizeof(imx_ion_data) + (imx_ion_data.nr * sizeof(struct ion_platform_heap)));
-#endif
-
-	/*GPU*/
-	if (mx53_revision() >= IMX_CHIP_REVISION_2_0)
-		mx53_bej_gpu_pdata.z160_revision = 1;
-	else
-		mx53_bej_gpu_pdata.z160_revision = 0;
-
-	if (!mxc_fuse_get_gpu_status())
-		imx53_add_mxc_gpu(&mx53_bej_gpu_pdata);
-
-	/* this call required to release SCC RAM partition held by ROM
-	  * during boot, even if SCC2 driver is not part of the image
-	  */
-	imx53_add_mxc_scc2();
-	smd_add_device_battery();
-	pm_i2c_init(MX53_I2C1_BASE_ADDR);
-
-	imx53_add_dvfs_core(&smd_dvfs_core_data);
-	imx53_add_busfreq();
 }
 
 static void __init mx53_bej_timer_init(void)

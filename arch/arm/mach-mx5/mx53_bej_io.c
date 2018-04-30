@@ -52,18 +52,9 @@ void mx53_bej_lcd_power_en(int on)
 {
 	unsigned port;
 
-	if (machine_is_mx53_bej())
-	{
-		port = get_lcd_power_port_bej();
-	}
 #ifdef CONFIG_MACH_MX53_BEJ2
-	else if (machine_is_mx53_bej2())
-	{
 		port = get_lcd_power_port_bej2();
-	}
 #endif
-	else
-		return;
 
 	if(on)
 	{
