@@ -49,6 +49,10 @@
 #define MX3_PWMCR_CLKSRC_IPG_32k	(3 << 16)
 #define MX3_PWMCR_OUTPIN_DISCONNECT	(3 << 18)
 
+#ifdef CONFIG_MACH_MX53_BEJ
+#define MX3_PWMCR_SWR	(1 << 3)
+#endif
+
 struct pwm_device {
 	struct list_head	node;
 	struct platform_device *pdev;
@@ -184,9 +188,12 @@ void pwm_disable(struct pwm_device *pwm)
 	if (pwm->disable_pwm_pad)
 		pwm->disable_pwm_pad();
 
+#ifdef CONFIG_MACH_MX53_BEJ
 	writel(MX3_PWMCR_SWR, pwm->mmio_base + MX3_PWMCR);
+#else
 	while (readl(pwm->mmio_base + MX3_PWMCR) & MX3_PWMCR_SWR)
 		;
+#endif
 
 	if (pwm->clk_enabled) {
 		clk_disable(pwm->clk);

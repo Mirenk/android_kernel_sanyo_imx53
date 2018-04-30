@@ -26,3 +26,4 @@ obj-$(CONFIG_MX51_EFIKA_COMMON) += mx51_efika.o
 obj-$(CONFIG_MACH_MX51_EFIKAMX) += board-mx51_efikamx.o
 obj-$(CONFIG_MACH_MX51_EFIKASB) += board-mx51_efikasb.o
 obj-$(CONFIG_MACH_MX50_RDP) += board-mx50_rdp.o mx50_rdp_pmic_mc13892.o
+obj-$(CONFIG_MACH_MX53_BEJ2) += board-mx53_bej2.o pm_i2c.o pm_da9053.o mx53_bej_pmic_da9053.o mx53_bej_io.o

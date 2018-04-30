@@ -795,4 +795,13 @@ config TOUCHSCREEN_DA9052
         help
           Say y here to support the touchscreen found on
           Dialog Semiconductor DA9052 PMIC
+
+config TOUCHSCREEN_ROHM_BU21023
+					tristate "ROHM BU21023 driver"
+					depends on I2C
+					help
+					  Say Y here if you have a touchscreen interface using the
+					  synaptics controller
+
+						If unsure, say N (but it's safe to say "Y").
 endif

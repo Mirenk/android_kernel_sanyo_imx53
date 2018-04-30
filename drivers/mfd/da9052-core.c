@@ -28,6 +28,11 @@
 #include <linux/mfd/da9052/da9052.h>
 #include <linux/mfd/da9052/adc.h>
 
+/* Add Sanyo CE*/
+#include <linux/rtc.h>
+#include <linux/mfd/da9052/rtc.h>
+/* Add Sanyo CE End*/
+
 #define SUCCESS		0
 #define FAILURE		1
 
@@ -531,6 +536,8 @@ void da9052_ssc_exit(struct da9052 *da9052)
 	return;
 }
 
+extern void mx53_bej_watchdog_en(int on);
+
 void da9053_power_off(void)
 {
 	struct da9052_ssc_msg ssc_msg;
@@ -551,6 +558,180 @@ int da9053_get_chip_version(void)
 {
 	return da9052_data->chip_version;
 }
+
+
+/* Add Sanyo CE*/
+static int da9052_rtc_validate_parameters(struct rtc_time *rtc_tm)
+{
+
+	if (rtc_tm->tm_sec > DA9052_RTC_SECONDS_LIMIT)
+		return DA9052_RTC_INVALID_SECONDS;
+
+	if (rtc_tm->tm_min > DA9052_RTC_MINUTES_LIMIT)
+		return DA9052_RTC_INVALID_MINUTES;
+
+	if (rtc_tm->tm_hour > DA9052_RTC_HOURS_LIMIT)
+		return DA9052_RTC_INVALID_HOURS;
+
+	if (rtc_tm->tm_mday == 0)
+		return DA9052_RTC_INVALID_DAYS;
+
+	if ((rtc_tm->tm_mon > DA9052_RTC_MONTHS_LIMIT) ||
+	(rtc_tm->tm_mon == 0))
+		return DA9052_RTC_INVALID_MONTHS;
+
+	if (rtc_tm->tm_year > DA9052_RTC_YEARS_LIMIT)
+		return DA9052_RTC_INVALID_YEARS;
+
+	if ((rtc_tm->tm_mon == FEBRUARY)) {
+		if (((rtc_tm->tm_year % 4 == 0) &&
+			(rtc_tm->tm_year % 100 != 0)) ||
+			(rtc_tm->tm_year % 400 == 0)) {
+			if (rtc_tm->tm_mday > 29)
+				return DA9052_RTC_INVALID_DAYS;
+		} else if (rtc_tm->tm_mday > 28) {
+			return DA9052_RTC_INVALID_DAYS;
+		}
+	}
+
+	if (((rtc_tm->tm_mon == APRIL) || (rtc_tm->tm_mon == JUNE) ||
+		(rtc_tm->tm_mon == SEPTEMBER) || (rtc_tm->tm_mon == NOVEMBER))
+		&& (rtc_tm->tm_mday == 31)) {
+		return DA9052_RTC_INVALID_DAYS;
+	}
+
+
+	return 0;
+}
+
+int da9053_rtc_set_time(struct rtc_time *rtc_tm)
+{
+	struct da9052_ssc_msg msg_arr[6];
+	int validate_param = 0;
+	unsigned char loop_index = 0;
+	int ret = 0;
+
+	/*2000NÈOÌlÍAÝèµÈ¢*/
+	if(rtc_tm->tm_year < 100)
+	{
+		return DA9052_RTC_INVALID_YEARS;
+	}
+
+	/* System compatability */
+	rtc_tm->tm_year -= 100;
+	rtc_tm->tm_mon += 1;
+
+	validate_param = da9052_rtc_validate_parameters(rtc_tm);
+	if (validate_param)
+		return validate_param;
+
+//printk("da9052 %d,%d,%d,%d,%d,%d\n",rtc_tm->tm_year,rtc_tm->tm_mon,rtc_tm->tm_mday,rtc_tm->tm_hour,rtc_tm->tm_min,rtc_tm->tm_sec);
+
+	msg_arr[loop_index].addr = DA9052_COUNTS_REG;
+	msg_arr[loop_index++].data = DA9052_COUNTS_MONITOR | rtc_tm->tm_sec;
+
+	msg_arr[loop_index].addr = DA9052_COUNTMI_REG;
+	msg_arr[loop_index].data = 0;
+	msg_arr[loop_index++].data = rtc_tm->tm_min;
+
+	msg_arr[loop_index].addr = DA9052_COUNTH_REG;
+	msg_arr[loop_index].data = 0;
+	msg_arr[loop_index++].data = rtc_tm->tm_hour;
+
+	msg_arr[loop_index].addr = DA9052_COUNTD_REG;
+	msg_arr[loop_index].data = 0;
+	msg_arr[loop_index++].data = rtc_tm->tm_mday;
+
+	msg_arr[loop_index].addr = DA9052_COUNTMO_REG;
+	msg_arr[loop_index].data = 0;
+	msg_arr[loop_index++].data = rtc_tm->tm_mon;
+
+	msg_arr[loop_index].addr = DA9052_COUNTY_REG;
+	msg_arr[loop_index].data = 0;
+	msg_arr[loop_index++].data = rtc_tm->tm_year;
+
+	da9052_lock(da9052_data);
+	ret = da9052_data->write_many(da9052_data, msg_arr, loop_index);
+	if (ret != 0) {
+		da9052_unlock(da9052_data);
+		return ret;
+	}
+
+	da9052_unlock(da9052_data);
+	return 0;
+}
+
+int da9053_rtc_get_time(struct rtc_time *rtc_tm)
+{
+	struct da9052_ssc_msg msg[6];
+	unsigned char loop_index = 0;
+	int validate_param = 0;
+	int ret = 0;
+
+	msg[loop_index].data = 0;
+	msg[loop_index++].addr = DA9052_COUNTS_REG;
+
+	msg[loop_index].data = 0;
+	msg[loop_index++].addr = DA9052_COUNTMI_REG;
+
+	msg[loop_index].data = 0;
+	msg[loop_index++].addr = DA9052_COUNTH_REG;
+
+	msg[loop_index].data = 0;
+	msg[loop_index++].addr = DA9052_COUNTD_REG;
+
+	msg[loop_index].data = 0;
+	msg[loop_index++].addr = DA9052_COUNTMO_REG;
+
+	msg[loop_index].data = 0;
+	msg[loop_index++].addr = DA9052_COUNTY_REG;
+
+	da9052_lock(da9052_data);
+	ret = da9052_data->read_many(da9052_data, msg, loop_index);
+	if (ret != 0) {
+		da9052_unlock(da9052_data);
+		return ret;
+	}
+	da9052_unlock(da9052_data);
+
+	rtc_tm->tm_year = msg[--loop_index].data & DA9052_COUNTY_COUNTYEAR;
+	rtc_tm->tm_mon = msg[--loop_index].data & DA9052_COUNTMO_COUNTMONTH;
+	rtc_tm->tm_mday = msg[--loop_index].data & DA9052_COUNTD_COUNTDAY;
+	rtc_tm->tm_hour = msg[--loop_index].data & DA9052_COUNTH_COUNTHOUR;
+	rtc_tm->tm_min = msg[--loop_index].data & DA9052_COUNTMI_COUNTMIN;
+	rtc_tm->tm_sec = msg[--loop_index].data & DA9052_COUNTS_COUNTSEC;
+
+	validate_param = da9052_rtc_validate_parameters(rtc_tm);
+	if (validate_param)
+		return validate_param;
+
+	/* System compatability */
+	rtc_tm->tm_year += 100;
+	rtc_tm->tm_mon -= 1;
+	return 0;
+}
+
+int da9053_rtc_chk_valid(void)
+{
+	struct da9052_ssc_msg ssc_msg;
+
+	if (!da9052_data)
+		return 0;
+
+	da9052_lock(da9052_data);
+	ssc_msg.addr = DA9052_COUNTS_REG;
+	da9052_data->read(da9052_data, &ssc_msg);
+	da9052_unlock(da9052_data);
+
+	if(ssc_msg.data & DA9052_COUNTS_MONITOR)
+	{
+		/*valid*/
+		return 1;
+	}
+
+	return 0;
+}
+/* Add Sanyo CE End*/
 
 MODULE_AUTHOR("Dialog Semiconductor Ltd <dchen@diasemi.com>");
 MODULE_DESCRIPTION("DA9052 MFD Core");

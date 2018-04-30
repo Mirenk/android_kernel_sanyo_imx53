@@ -55,3 +55,9 @@ obj-$(CONFIG_MXC_TVIN_ADV7180) += adv7180_tvin.o
 
 adv7280_tvin-objs := adv7280_mipi_tvin.o
 obj-$(CONFIG_MXC_MIPI_CSI2_TVIN_ADV7280) += adv7280_mipi_tvin.o
+
+rnss2e1_camera-objs := rnss2e1.o
+obj-$(CONFIG_MXC_CAMERA_RNSS2E1) += rnss2e1_camera.o
+
+sr200pc20_camera-objs := sr200pc20.o
+obj-$(CONFIG_MXC_CAMERA_SR200PC20) += sr200pc20_camera.o

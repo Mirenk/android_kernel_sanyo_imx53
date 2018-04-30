@@ -69,6 +69,12 @@ static ssize_t da9052_tsi_suspend(struct platform_device *dev,
 struct da9052_tsi tsi_reg;
 struct da9052_tsi_info gda9052_tsi_info;
 
+/***** Sanyo CE Add Start *****/
+/* /sys/module/da9052-tsi/parameters/calibrationからｷｬﾘﾌﾞﾚｰｼｮﾝ係数取得に変更 */
+s32 calibration[9];
+module_param_array(calibration, int, NULL, S_IRUGO | S_IWUSR);
+/***** Sanyo CE Add End *****/
+
 static ssize_t write_da9052_reg(struct da9052 *da9052, u8 reg_addr, u8 data)
 {
 	ssize_t ret = 0;
@@ -1155,10 +1161,14 @@ static void da9052_tsi_penup_event(struct da9052_ts_priv *priv)
 	priv->debounce_over = FALSE;
 	priv->win_reference_valid = FALSE;
 
-	printk(KERN_INFO "The raw data count is %d \n", priv->raw_data_cnt);
-	printk(KERN_INFO "The OS data count is %d \n", priv->os_data_cnt);
-	printk(KERN_INFO "PEN UP DECLARED \n");
-	input_report_abs(ip_dev, BTN_TOUCH, 0);
+//	printk(KERN_INFO "The raw data count is %d \n", priv->raw_data_cnt);
+//	printk(KERN_INFO "The OS data count is %d \n", priv->os_data_cnt);
+//	printk(KERN_INFO "PEN UP DECLARED \n");
+/***** Sanyo CE Modify Start *****/
+//	input_report_abs(ip_dev, BTN_TOUCH, 0);
+	input_report_key(ip_dev, BTN_TOUCH, 0);
+	priv->touch_flg = 1;
+/***** Sanyo CE Modify End *****/
 	input_sync(ip_dev);
 	priv->os_data_cnt = 0;
 	priv->raw_data_cnt = 0;

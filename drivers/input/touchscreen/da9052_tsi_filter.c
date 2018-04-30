@@ -31,6 +31,11 @@
 		if (--x < 0)				\
 			x = (TSI_RAW_DATA_BUF_SIZE-1)
 
+/***** Sanyo CE Add Start *****/
+#define MOBILITY_COUNT	4
+//-- #define OLDPANEL   //評価基板のタッチパネルが非正式版の時
+/***** Sanyo CE Add End *****/
+
 static u32 get_raw_data_cnt(struct da9052_ts_priv *priv);
 static void da9052_tsi_convert_reg_to_coord(struct da9052_ts_priv *priv,
 					struct da9052_tsi_data *raw_data);
@@ -254,6 +259,20 @@ static void da9052_tsi_avrg_filter(struct da9052_ts_priv *priv,
 }
 #endif
 
+/***** Sanyo CE Add Start *****/
+/* 左下が原点で、取得座標がX、Y逆のため右上に座標を変換する */
+void da9052_tsi_raw_col_change(struct da9052_tsi_data *displayPtr)
+{
+	struct da9052_tsi_data tmpPtr;
+
+	tmpPtr = *displayPtr;	
+	
+	displayPtr->x = tmpPtr.y;
+	displayPtr->y = DISPLAY_Y_MAX - tmpPtr.x;
+
+}
+/***** Sanyo CE Add End *****/
+
 s32 da9052_tsi_raw_proc_thread(void *ptr)
 {
 	struct da9052_tsi_data coord;
@@ -263,6 +282,16 @@ s32 da9052_tsi_raw_proc_thread(void *ptr)
 				da9052_tsi_get_input_dev(
 						(u8)TSI_INPUT_DEVICE_OFF);
 	struct da9052_ts_priv *priv = (struct da9052_ts_priv *)ptr;
+
+/***** Sanyo CE Add Start *****/
+	int i1, x_sum, y_sum;
+	int mob_x[MOBILITY_COUNT] = {0};
+	int mob_y[MOBILITY_COUNT] = {0};
+	int offset = 0;
+	int avrg   = 0;
+
+	priv->touch_flg = 0;	//Touch Down中
+/***** Sanyo CE Add End *****/
 
 	set_freezable();
 
@@ -298,7 +327,49 @@ s32 da9052_tsi_raw_proc_thread(void *ptr)
 		up(&priv->tsi_raw_fifo.lock);
 
 #endif
+/***** Sanyo CE Add Start *****/
+#ifdef OLDPANEL
+		da9052_tsi_raw_col_change(&coord);	//X、Y座標を入れ替え(正式では不要)
+#endif
+		if (priv->touch_flg == 0) {
+			if (avrg < MOBILITY_COUNT) {
+				mob_x[offset] = coord.x;
+				mob_y[offset] = coord.y;
+				avrg++;
+			}
+			else {
+				mob_x[offset % MOBILITY_COUNT] = coord.x;
+				mob_y[offset % MOBILITY_COUNT] = coord.y;
+			}
+			offset++;
+			offset %= MOBILITY_COUNT;
+			x_sum = 0;
+			y_sum = 0;
+			for (i1 = 0; i1 < avrg; i1++) {
+				x_sum += mob_x[i1];
+				y_sum += mob_y[i1];
+			}
+			coord.x = x_sum / avrg;
+			coord.y = y_sum / avrg;
+			
+		}
+		else {
+//-----
+#if DA9052_TSI_OS_DATA_PROFILING
+			printk("Touch Pen UP Get\n");
+#endif
+			offset = 0;
+			avrg   = 0;
+			priv->touch_flg = 0;	//Touch Down中
+		}
+/***** Sanyo CE Add End *****/
 
+//-----
+#if DA9052_TSI_OS_DATA_PROFILING
+			printk("calib before\tX\t%4d\tY\t%4d\tZ\t%4d\n",  (u16)coord.x,
+						(u16)coord.y, (u16)coord.z);
+#endif
+//-----
 		if (tsi_calib->calibrate_flag) {
 			calib_ok = da9052_tsi_get_calib_display_point(&coord);
 
@@ -310,13 +381,23 @@ s32 da9052_tsi_raw_proc_thread(void *ptr)
 		}
 
 		if (calib_ok && range_ok) {
-			input_report_abs(ip_dev, BTN_TOUCH, 1);
-			input_report_abs(ip_dev, ABS_X, coord.x);
-			input_report_abs(ip_dev, ABS_Y, coord.y);
+/***** Sanyo CE Modify Start *****/
+//			input_report_abs(ip_dev, BTN_TOUCH, 1);
+/***** Sanyo CE Add Start *****/
+			input_report_abs(ip_dev, ABS_X, (int)coord.x);
+			input_report_abs(ip_dev, ABS_Y, (int)coord.y);
+/***** Sanyo CE Modify Start *****/
+			input_report_key(ip_dev, BTN_TOUCH, 1);
+/***** Sanyo CE Add Start *****/
 			input_sync(ip_dev);
 
 			priv->os_data_cnt++;
-
+//-----
+#if DA9052_TSI_OS_DATA_PROFILING
+			printk("calib after\tX\t%4d\tY\t%4d\tZ\t%4d\n",  (u16)coord.x,
+						(u16)coord.y, (u16)coord.z);
+#endif
+//-----
 #if DA9052_TSI_OS_DATA_PROFILING
 			printk("O\tX\t%4d\tY\t%4d\tZ\t%4d\n",  (u16)coord.x,
 						(u16)coord.y, (u16)coord.z);

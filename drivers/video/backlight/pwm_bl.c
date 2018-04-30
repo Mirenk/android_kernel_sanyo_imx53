@@ -31,8 +31,14 @@ struct pwm_bl_data {
 	unsigned int		lth_brightness;
 	int			(*notify)(struct device *,
 					  int brightness);
+	u32 fb_state;
+	int brightness_data;
 	int			(*check_fb)(struct device *, struct fb_info *);
 };
+
+#ifdef CONFIG_MACH_MX53_BEJ
+extern void mx53_bej_lcd_bl_en(int on);
+#endif
 
 static int pwm_backlight_update_status(struct backlight_device *bl)
 {
@@ -52,11 +58,20 @@ static int pwm_backlight_update_status(struct backlight_device *bl)
 	if (brightness == 0) {
 		pwm_config(pb->pwm, 0, pb->period);
 		pwm_disable(pb->pwm);
+#ifdef CONFIG_MACH_MX53_BEJ
+		mx53_bej_lcd_bl_en(0);
+#endif
 	} else {
+		if(pb->fb_state != FBINFO_STATE_SUSPENDED)
+		{
+#ifdef CONFIG_MACH_MX53_BEJ
+			mx53_bej_lcd_bl_en(1);
+#endif
 		brightness = pb->lth_brightness +
 			(brightness * (pb->period - pb->lth_brightness) / max);
 		pwm_config(pb->pwm, brightness, pb->period);
 		pwm_enable(pb->pwm);
+		}
 	}
 	return 0;
 }
@@ -69,16 +84,18 @@ static int pwm_backlight_get_brightness(struct backlight_device *bl)
 static int pwm_backlight_check_fb(struct backlight_device *bl,
 					struct fb_info *info)
 {
-	struct pwm_bl_data *pb = bl_get_data(bl);
-	char *id = info->fix.id;
-	int ret = 0;
+#ifdef CONFIG_MACH_MX53_BEJ
+	struct pwm_bl_data *pb = dev_get_drvdata(&bl->dev);
 
-	if (pb->check_fb) {
-		ret = pb->check_fb(pb->dev, info);
-
-		if (ret)
-			return ret;
+	pb->fb_state = info->state;
+	if(pb->fb_state != FBINFO_STATE_SUSPENDED)
+	{
+		if(strcmp(dev_name(info->dev),"fb1") == 0)
+		{
+			pwm_backlight_update_status(bl);
+		}
 	}
+#endif
 
 	if (!strcmp(id, "DISP3 BG") ||
 		!strcmp(id, "DISP3 BG - DI1") ||
