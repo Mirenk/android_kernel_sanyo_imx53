@@ -53,7 +53,7 @@ void mx53_bej_lcd_power_en(int on)
 	unsigned port;
 
 #ifdef CONFIG_MACH_MX53_BEJ2
-		port = get_lcd_power_port_bej2();
+	port = get_lcd_power_port_bej2();
 #endif
 
 	if(on)
@@ -72,16 +72,7 @@ void mx53_bej_lcd_bl_en(int on)
 {
 	unsigned port;
 
-	if (machine_is_mx53_bej())
-	{
-		port = get_lcd_bl_port_bej();
-	}
-	else if (machine_is_mx53_bej2())
-	{
-		port = get_lcd_bl_port_bej2();
-	}
-	else
-		return;
+	port = get_lcd_bl_port_bej2();
 
 	if(on)
 	{
@@ -98,17 +89,7 @@ void mx53_bej_lcd_5v_ctl(int on)
 {
 	unsigned port;
 
-	if (machine_is_mx53_bej())
-	{
-		port = get_lcd_5v_port_bej();
-	}
-	else if (machine_is_mx53_bej2())
-	{
-//		port = get_lcd_5v_port_bej2();
-		return;
-	}
-	else
-		return;
+	return;
 
 	if(on)
 	{
@@ -124,18 +105,7 @@ EXPORT_SYMBOL(mx53_bej_lcd_5v_ctl);
 void mx53_bej_lcd_reset_ctl(int on)
 {
 	unsigned port;
-
-	if (machine_is_mx53_bej())
-	{
-		port = get_lcd_reset_port_bej();
-	}
-	else if (machine_is_mx53_bej2())
-	{
-//		port = get_lcd_reset_port_bej2();
-		return;
-	}
-	else
-		return;
+	return;
 
 	if(on)
 	{
@@ -152,16 +122,7 @@ void mx53_bej_csi0_rst(int on)
 {
 	unsigned port;
 
-	if (machine_is_mx53_bej())
-	{
-		port = get_csi0_rst_port_bej();
-	}
-	else if (machine_is_mx53_bej2())
-	{
-		port = get_csi0_rst_port_bej2();
-	}
-	else
-		return;
+	port = get_csi0_rst_port_bej2();
 
 	if(on)
 	{
@@ -179,18 +140,8 @@ void mx53_bej_watchdog_en(int on)
 	unsigned port;
 	unsigned port2;
 
-	if (machine_is_mx53_bej())
-	{
-		port = get_watchdog_port_bej();
-		port2 = get_watchdog_test_port_bej();
-	}
-	else if (machine_is_mx53_bej2())
-	{
-		port = get_watchdog_port_bej2();
-		port2 = get_watchdog_test_port_bej2();
-	}
-	else
-		return;
+	port = get_watchdog_port_bej2();
+	port2 = get_watchdog_test_port_bej2();
 
 	if(on)
 	{
@@ -209,16 +160,7 @@ void mx53_bej_wifi_power_en(int on)
 {
 	unsigned port;
 
-	if (machine_is_mx53_bej())
-	{
-		port = get_wifi_power_port_bej();
-	}
-	else if (machine_is_mx53_bej2())
-	{
-		port = get_wifi_power_port_bej2();
-	}
-	else
-		return;
+	port = get_wifi_power_port_bej2();
 
 	if(on)
 	{
@@ -235,16 +177,7 @@ void mx53_bej_wifi_reset_en(int on)
 {
 	unsigned port;
 
-	if (machine_is_mx53_bej())
-	{
-		port = get_wifi_reset_port_bej();
-	}
-	else if (machine_is_mx53_bej2())
-	{
-		port = get_wifi_reset_port_bej2();
-	}
-	else
-		return;
+	port = get_wifi_reset_port_bej2();
 
 	if(on)
 	{
